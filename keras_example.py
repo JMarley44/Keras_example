@@ -12,6 +12,7 @@ doFit = True
 doPlots = True
 
 ##### make plot
+#
 def makePlot(X1,X2, tag, Nb, **kwargs):
     plt.clf()
     
@@ -27,15 +28,17 @@ def makePlot(X1,X2, tag, Nb, **kwargs):
     themin = min( [min(X1), min(X2)])
     themax = max( [max(X1), max(X2)])
     bins = np.linspace(themin, themax, Nb)
-
     plt.hist(X1, bins=bins, density=True, label=['background'])
     plt.hist(X2, bins=bins, density=True, label=['signal'], histtype=u'step')
 
-    plt.xlabel(xtitle)
-    plt.title(title)
-    plt.ylabel("# Entries (Norm)")
+    plt.xlabel(xtitle, fontsize=25)
+    plt.title(title, fontsize=40)
+    plt.ylabel("# Entries (Norm)", fontsize=25)
     plt.legend(loc='upper right')
+    #plt.xscale('log')
+    #plt.yscale('log')
     plt.savefig(tag+".png")
+    plt.grid(color ='k')
 
 
 

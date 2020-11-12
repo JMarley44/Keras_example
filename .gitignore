@@ -1,3 +1,5 @@
-.ini
-.ini.bak
-.png
+*.ini
+.spyproject/config/backups/codestyle.ini.bak
+*.bak
+.spyproject/config/workspace.ini
+*.png
