@@ -12,36 +12,60 @@ doFit = True
 doPlots = True
 
 ##### make plot
-#
-def makePlot(X1,X2, tag, Nb, **kwargs):
+def makePlot(X1,X2, tag, Nb, close, **kwargs):
     plt.clf()
-    
+    fig, ax = plt.subplots(ncols=1, nrows=1)
+
     xtitle=tag
     title = tag
     for key, value in kwargs.items():
         if key == "xtitle":
             xtitle = value
         elif key=="title":
-            title = value
-        
+            title = value  
 
     themin = min( [min(X1), min(X2)])
     themax = max( [max(X1), max(X2)])
     bins = np.linspace(themin, themax, Nb)
-    plt.hist(X1, bins=bins, density=True, label=['background'])
-    plt.hist(X2, bins=bins, density=True, label=['signal'], histtype=u'step')
+    bincentre = np.zeros(len(bins))
+    
+    for i in range(len(bins)):
+        if i<len(bins)-1:
+            bincentre[i] = bins[i]+((bins[i+1]-bins[i])/2)
+        else:
+            bincentre[i] = bins[i]+((1-bins[i])/2)
+    #Offset the errorbars for background and signal from the centre so they don't overlap
+    err_offset = 5E-3*themax
+    #ax.set_xscale('log')
+    #ax.set_yscale('log')
+    
+    #Background plot
+    plt.hist(X1, bins=bins, density=True, label=['Background'])
+    n_back, edge = np.histogram(X1, bins=Nb, range=(themin,themax), density=True)
+    back_err = np.sqrt(n_back)
+    ax.errorbar(bincentre-err_offset, n_back, xerr=None, yerr=back_err, ls='none', ecolor='k', fmt = 'ko')
+    
+    #Signal plot
+    plt.hist(X2, bins=bins, density=True, label=['Signal'], histtype=u'step')
+    n_sig, edge1 = np.histogram(X2, bins=Nb, range=(themin,themax), density=True)
+    sig_err = np.sqrt(n_sig)
+    ax.errorbar(bincentre+err_offset, n_sig, xerr=None, yerr=sig_err, ls='none', ecolor='r', fmt = 'ro')
 
-    plt.xlabel(xtitle, fontsize=25)
+    ymax = max([(max(n_back)+max(sig_err)), (max(n_sig)+max(sig_err))])
+
     plt.title(title, fontsize=40)
+    plt.xlabel(xtitle, fontsize=25)
     plt.ylabel("# Entries (Norm)", fontsize=25)
     plt.legend(loc='upper right')
-    #plt.xscale('log')
-    #plt.yscale('log')
+    plt.xlim(themin, themax)
+    plt.ylim(0, ymax)
+    ax.set_xticks(bins, minor=True)
+    ax.grid(which='minor', axis='x', alpha = 0.5)
+    ax.grid(which='major', axis='y', alpha = 0.5)
     plt.savefig(tag+".png")
-    plt.grid(color ='k')
-
-
-
+    if close: plt.close()
+    
+    
 # load the dataset
 dataset = loadtxt('pima-indians-diabetes.data.csv', delimiter=',')
 # split into input (X) and output (y) variables
@@ -58,7 +82,7 @@ if doPlots:
         x1 = x1[:,0]
         x2 = x[ x[:,1] >0  ]
         x2 = x2[:,0]
-        makePlot(x1,x2,f,20)
+        makePlot(x1,x2,f,20, True)
 
 
 
@@ -81,9 +105,7 @@ if doPlots:
         x1 = x1[:,0]
         x2 = x[ x[:,1] >0  ]
         x2 = x2[:,0]
-        makePlot(x1,x2,f,20)
-
-
+        makePlot(x1,x2,f,20, True)
 
 
 #sys.exit()
@@ -151,7 +173,7 @@ res_sig = model.predict(x_sig)
 res_bkg = model.predict(x_bkg)
 
 #print(res_sig)
-makePlot(res_bkg.flatten(),res_sig.flatten(), "nn_pred", 20, xtitle="NN output", title="all sample")
+makePlot(res_bkg.flatten(),res_sig.flatten(), "nn_pred", 20, False, xtitle="NN output", title="All sample")
 
 data_train = dataset_norm[N_train:,:]
 x_bkg = data_train[  data_train[:,8] == 0  ][:,0:8] 
@@ -161,7 +183,7 @@ x_sig = data_train[  data_train[:,8] > 0 ][:,0:8]
 ## prediction
 res_sig = model.predict(x_sig)
 res_bkg = model.predict(x_bkg)
-makePlot(res_bkg.flatten(),res_sig.flatten(), "nn_pred_test", 20, xtitle="NN output", title="test sample")
+makePlot(res_bkg.flatten(),res_sig.flatten(), "nn_pred_test", 20, False, xtitle="NN output", title="Test sample")
 
 
 
@@ -176,3 +198,4 @@ print('Accuracy test: {:.2f}'.format(acc_test))
 
 #print(y_test)
 #print(y_test[ y_test>1  ] )
+

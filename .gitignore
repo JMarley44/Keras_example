@@ -3,3 +3,4 @@
 *.bak
 .spyproject/config/workspace.ini
 *.png
+*.ini
