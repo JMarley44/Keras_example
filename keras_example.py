@@ -6,15 +6,17 @@ import keras
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_curve
 import sys
 
 doFit = True
 doPlots = True
+doScaling = True
 
 ##### make plot
 def makePlot(X1,X2, tag, Nb, close, **kwargs):
     plt.clf()
-    fig, ax = plt.subplots(ncols=1, nrows=1)
+    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(10.0,8.0))
 
     xtitle=tag
     title = tag
@@ -22,48 +24,64 @@ def makePlot(X1,X2, tag, Nb, close, **kwargs):
         if key == "xtitle":
             xtitle = value
         elif key=="title":
-            title = value  
+            title = value
+
 
     themin = min( [min(X1), min(X2)])
     themax = max( [max(X1), max(X2)])
     bins = np.linspace(themin, themax, Nb)
-    bincentre = np.zeros(len(bins))
+    width = np.zeros(len(bins)-1)
     
-    for i in range(len(bins)):
-        if i<len(bins)-1:
+    #Calculate bin centres
+    bincentre = np.zeros(len(bins)-1)
+    for i in range(len(bins)-1):
             bincentre[i] = bins[i]+((bins[i+1]-bins[i])/2)
-        else:
-            bincentre[i] = bins[i]+((1-bins[i])/2)
+            width[i] = bins[i+1]-bins[i]
+
     #Offset the errorbars for background and signal from the centre so they don't overlap
-    err_offset = 5E-3*themax
-    #ax.set_xscale('log')
+    err_offset = 0.1*width
+    
+    #Set axis scale
     #ax.set_yscale('log')
     
+    #Implement hatches for errors
+    #https://het.as.utexas.edu/HET/Software/Matplotlib/api/patches_api.html#matplotlib.patches.Patch.set_hatch
+    
     #Background plot
-    plt.hist(X1, bins=bins, density=True, label=['Background'])
-    n_back, edge = np.histogram(X1, bins=Nb, range=(themin,themax), density=True)
-    back_err = np.sqrt(n_back)
-    ax.errorbar(bincentre-err_offset, n_back, xerr=None, yerr=back_err, ls='none', ecolor='k', fmt = 'ko')
+    plt.hist(X1, bins=bins, label=['Background'],density=True)
+    n_back_pos, edge = np.histogram(X1, bins=Nb-1, range=(themin,themax),density=True)
+    n_back_count, edge1 = np.histogram(X1, bins=Nb-1, range=(themin,themax))
+    back_err = np.sqrt(n_back_count)/(np.sum(n_back_count)*width)
+    ax.errorbar(bincentre-err_offset, n_back_pos, xerr=None, yerr=back_err, ls='none', ecolor='k', fmt = 'ko')
     
     #Signal plot
-    plt.hist(X2, bins=bins, density=True, label=['Signal'], histtype=u'step')
-    n_sig, edge1 = np.histogram(X2, bins=Nb, range=(themin,themax), density=True)
-    sig_err = np.sqrt(n_sig)
-    ax.errorbar(bincentre+err_offset, n_sig, xerr=None, yerr=sig_err, ls='none', ecolor='r', fmt = 'ro')
+    plt.hist(X2, bins=bins, label=['Signal'], histtype=u'step',density=True)
+    n_sig_pos, edge2 = np.histogram(X2, bins=Nb-1, range=(themin,themax),density=True)
+    n_sig_count, edge3 = np.histogram(X2, bins=Nb-1, range=(themin,themax))
+    sig_err = np.sqrt(n_sig_count)/(np.sum(n_sig_count)*width)
+    ax.errorbar(bincentre+err_offset, n_sig_pos, xerr=None, yerr=sig_err, ls='none', ecolor='r', fmt = 'ro')
 
-    ymax = max([(max(n_back)+max(sig_err)), (max(n_sig)+max(sig_err))])
+    ymax = max([(max(n_back_pos)+max(back_err)), (max(n_sig_pos)+max(sig_err))])
+
+    # if title == "Test sample":
+    #     print("n back position: ", n_back_pos)
+    #     print("n back count: ", n_back_count)
+    #     print("X1: ", X1)
+    #     print("edge1: ", edge1)
+    #     print("edge2: ", edge2)
+    #     print("bins: ", bins)
 
     plt.title(title, fontsize=40)
     plt.xlabel(xtitle, fontsize=25)
     plt.ylabel("# Entries (Norm)", fontsize=25)
     plt.legend(loc='upper right')
     plt.xlim(themin, themax)
-    plt.ylim(0, ymax)
+    plt.ylim(0, 1.2*ymax)
     ax.set_xticks(bins, minor=True)
     ax.grid(which='minor', axis='x', alpha = 0.5)
     ax.grid(which='major', axis='y', alpha = 0.5)
     plt.savefig(tag+".png")
-    if close: plt.close()
+    if close: plt.close('all')
     
     
 # load the dataset
@@ -72,10 +90,12 @@ dataset = loadtxt('pima-indians-diabetes.data.csv', delimiter=',')
 X = dataset[:,0:8]
 y = dataset[:,8]
 
-
+attributes = ['# of times pregnant', 'Plasma glucose concentration', 'Diastolic blood pressure',
+              'Triceps skin fold thickness', '2-hour serum insulin', 'BMI', 'Diabetes pedigree function',
+              'Age', 'Class variable']
 
 if doPlots:
-    feat = ["f"+str(j) for j in range(8)]
+    feat = [str(j) for j in attributes]
     for k,f in enumerate(feat):
         x = np.array(dataset[:,[k,8]])
         x1 = x[ x[:,1] == 0  ]
@@ -85,20 +105,24 @@ if doPlots:
         makePlot(x1,x2,f,20, True)
 
 
-
-###  now normalize your data 
-print( 'Data normalization here')
-scaler = StandardScaler()
-scaler.fit(X)
-X_norm = scaler.transform(X)
-dataset_norm = np.insert(X_norm,8, y, axis=1)
+### Normalise data if scaling is enabled
+if doScaling:
+    print( 'Data normalisation here')
+    scaler = StandardScaler()
+    scaler.fit(X)
+    X_norm = scaler.transform(X)
+    dataset_norm = np.insert(X_norm,8, y, axis=1)
+else:
+    print( 'Normalisation disabled')
+    X_norm = X
+    dataset_norm = np.insert(X_norm,8, y, axis=1)
 
 #print(X_norm)
 #print(dataset_norm)
 #sys.exit()
 
 if doPlots:
-    feat = ["f"+str(j)+"_norm" for j in range(8)]
+    feat = [str(j)+" Normal" for j in attributes]
     for k,f in enumerate(feat):
         x = dataset_norm[:,[k,8]]
         x1 = x[ x[:,1] == 0  ]
@@ -166,6 +190,7 @@ else:
 #print(' Number of entries: ', len(X))
 
 x_bkg =  dataset_norm[  dataset_norm[:,8] == 0  ][:,0:8] 
+x_bkg_true =  dataset_norm[dataset_norm[:,8]==0]
 x_sig =  dataset_norm[  dataset_norm[:,8] > 0  ][:,0:8] 
 
 ## prediction
@@ -185,8 +210,7 @@ res_sig = model.predict(x_sig)
 res_bkg = model.predict(x_bkg)
 makePlot(res_bkg.flatten(),res_sig.flatten(), "nn_pred_test", 20, False, xtitle="NN output", title="Test sample")
 
-
-
+#fpr, tpr, thresholds = roc_curve(true binary (y), res_sig)
 
 _,acc_train = model.evaluate(X_train, y_train)
 print('Accuracy train: {:.2f}'.format(acc_train))
