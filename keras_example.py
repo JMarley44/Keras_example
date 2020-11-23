@@ -1,6 +1,7 @@
 from numpy import loadtxt
 from keras.models import Sequential
 from keras.layers import Dense
+from keras.callbacks import EarlyStopping
 import keras
 
 import numpy as np
@@ -12,6 +13,10 @@ import sys
 doFit = True
 doPlots = True
 doScaling = True
+doES = True
+Opt = True
+
+batch = np.linspace(5,10,5)
 
 ##### make plot function
 def makePlot(X1,X2, tag, Nb, close, **kwargs):
@@ -154,14 +159,31 @@ print("will split test and training samples: train ", N_train,"total:", N)
 
 '''The keras model'''
 
+if Opt:
+    loop = 10
+else:
+    loop = 1
+    
+
+
 if doFit:
+    # Define the model
     model = Sequential()
     model.add(Dense(12, input_dim=8, activation='relu'))
     model.add(Dense(8, activation='relu'))
     model.add(Dense(1, activation='sigmoid'))
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-    history = model.fit(X_train, y_train, epochs=150, batch_size=10,
-                        validation_data=(X_test,y_test))
+    
+    if doES:
+        # Fit the model with early stopping
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=35)
+        history = model.fit(X_train, y_train, epochs=150, batch_size=10,
+                                    validation_data=(X_test,y_test), callbacks=[es])
+    else:
+        # Fit the model without early stopping
+            history = model.fit(X_train, y_train, epochs=150, batch_size=10,
+                                validation_data=(X_test,y_test), callbacks=[es])
+    
     print(history.history.keys())
     plt.clf()
     plt.plot(history.history['accuracy'])
@@ -238,17 +260,8 @@ makePlot(res_bkg.flatten(),res_sig.flatten(), "nn_pred", 20, False, xtitle="NN o
 y_pred_all = recombine(y)
 
 # Calculate the ROC curve
-fpr, tpr, thresholds = metrics.roc_curve(y, y_pred_all)
-
-# Plot (FPR against TPR)
-plt.figure(figsize=(10.0,8.0))
-plt.plot(fpr, tpr, label='RF')
-plt.xlabel('False positive rate', fontsize=25)
-plt.ylabel('True positive rate', fontsize=25)
-plt.title('ROC curve', fontsize=40)
-plt.legend(loc='best', fontsize=15)
-plt.show()
-plt.savefig("ROC_Curve.png")
+fpr_all, tpr_all, thresholds = metrics.roc_curve(y, y_pred_all)
+auc_all = metrics.auc(fpr_all, tpr_all)
 
 
 '''Test sample'''
@@ -266,6 +279,10 @@ makePlot(res_bkg.flatten(),res_sig.flatten(), "nn_pred_test", 20, False, xtitle=
 
 # Recombine background and signal for test data set
 y_pred_test = recombine(y_test)
+
+# Calculate the ROC curve
+fpr_test, tpr_test, thresholds = metrics.roc_curve(y_test, y_pred_test)
+auc_test = metrics.auc(fpr_test, tpr_test)
 
 # Predict y binary
 y_pred_test_bin = predict(y_pred_test)
@@ -290,12 +307,30 @@ res_bkg = model.predict(x_bkg)
 # Recombine background and signal for test data set
 y_pred_train = recombine(y_train)
 
+# Calculate the ROC curve
+fpr_train, tpr_train, thresholds = metrics.roc_curve(y_train, y_pred_train)
+auc_train = metrics.auc(fpr_train, tpr_train)
+
 # Predict y binary
 y_pred_train_bin = predict(y_pred_train)
 
 # Calculate loss and accuracy
 train_loss = metrics.log_loss(y_train, y_pred_train)
 train_acc = metrics.accuracy_score(y_train, y_pred_train_bin)
+
+'''ROC Curve plot'''
+
+# Plot (FPR against TPR)
+plt.figure(figsize=(10.0,8.0))
+plt.plot(fpr_all, tpr_all, label='All (area = {:.3f})'.format(auc_all), color='red')
+plt.plot(fpr_test, tpr_test, label='Test (area = {:.3f})'.format(auc_test), color='deepskyblue')
+plt.plot(fpr_train, tpr_train, label='Train (area = {:.3f})'.format(auc_train), color='limegreen')
+plt.xlabel('False positive rate', fontsize=25)
+plt.ylabel('True positive rate', fontsize=25)
+plt.title('ROC curve', fontsize=40)
+plt.legend(loc='best', fontsize=15)
+plt.show()
+plt.savefig("ROC_Curve.png")
 
 
 '''Print statements'''
