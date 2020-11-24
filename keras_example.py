@@ -14,7 +14,6 @@ doFit = True
 doPlots = True
 doScaling = True
 doES = True
-Opt = True
 
 batch = np.linspace(5,10,5)
 
@@ -158,13 +157,6 @@ y_test = y[N_train:]
 print("will split test and training samples: train ", N_train,"total:", N)
 
 '''The keras model'''
-
-if Opt:
-    loop = 10
-else:
-    loop = 1
-    
-
 
 if doFit:
     # Define the model
@@ -346,5 +338,5 @@ print('Accuracy test: {:.2f}'.format(acc_test))
 #print(y_test)
 #print(y_test[ y_test>1  ] )
 
-print('\nTrain sample loss is: {:.2f}'.format(train_loss), '\nTrain sample accuracy is: {:.2f}'.format(train_acc))
-print('\nTest sample loss is: {:.2f}'.format(test_loss), '\nTest sample accuracy is: {:.2f}'.format(test_acc))
+print('\nTrain sample loss is: {a:.2f} \nTrain sample accuracy is: {b:.2f}'.format(a=train_loss, b=train_acc))
+print('\nTest sample loss is: {a:.2f} \nTest sample accuracy is: {b:.2f}'.format(a=test_loss, b=test_acc))
